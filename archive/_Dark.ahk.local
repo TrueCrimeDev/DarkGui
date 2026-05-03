@@ -1,0 +1,100 @@
+#Requires AutoHotkey v2.1-alpha.17
+#SingleInstance Force
+
+#Include <_Dark>
+
+DarkModeDemo()
+
+class DarkModeDemo {
+    __New() {
+        this.gui := Gui("+Resize", "Dark Mode Demo")
+        this.dark := _Dark(this.gui)
+        this.SetupControls()
+        this.gui.OnEvent("Close", (*) => ExitApp())
+        this.gui.OnEvent("Escape", (*) => ExitApp())
+        this.gui.Show("w600 h400")
+    }
+
+    SetupControls() {
+        this.gui.SetFont("s10")
+        this.dark.AddDarkText("x10 y10 w480", "This is a demonstration of Dark Mode controls")
+        this.dark.AddDarkGroupBox("x10 y40 w280 h350", "  Control Types  ")
+
+        btn := this.dark.AddDarkButton("x120 y65 w150", "Dark Button")
+        btn.OnEvent("Click", (*) => MsgBox("Button clicked"))
+        this.dark.AddDarkText("x20 y70", "Buttons:")
+
+        this.dark.AddDarkText("x20 y110", "Edit:")
+        this.dark.AddDarkEdit("x120 y105 w150", "Editable text")
+
+        this.dark.AddDarkText("x20 y150", "ComboBox:")
+        this.dark.AddDarkComboBox("x120 y145 w150", ["Option 1", "Option 2", "Option 3"])
+
+        this.dark.AddDarkText("x20 y190", "CheckBox:")
+        this.dark.AddDarkCheckBox("x120 y185", "Check me")
+
+        this.dark.AddDarkText("x20 y230", "Radio Buttons:")
+        this.dark.AddDarkRadio("x120 y225 Group", "Option A")
+        this.dark.AddDarkRadio("x120 y250", "Option B")
+
+        this.dark.AddDarkText("x20 y290", "ListBox:")
+        this.dark.AddDarkListBox("x120 y285 w150 h60", ["Item 1", "Item 2", "Item 3", "Item 4"])
+
+        this.dark.AddDarkGroupBox("x300 y40 w290 h350", "  ListView Demo  ")
+
+        lvOpts := "x310 y70 w270 h310 Grid"
+        this.lv := this.dark.AddListView(lvOpts, ["Name", "Value", "Status"])
+
+        this.lv.Add(, "Item 1", "10", "Active")
+        this.lv.Add(, "Item 2", "20", "Inactive")
+        this.lv.Add(, "Item 3", "30", "Pending")
+        this.lv.Add(, "Item 4", "40", "Complete")
+        this.lv.Add(, "Item 5", "50", "Active")
+
+        this.lv.ModifyCol(1, 100)
+        this.lv.ModifyCol(2, 70)
+        this.lv.ModifyCol(3, 100)
+
+        darkListViewer := DarkListView()
+        darkListViewer.ApplyDarkHeader(this.lv)
+    }
+}
+
+class DarkListView {
+    ApplyDarkHeader(lv) {
+        static LVM_GETHEADER := 0x101F, UIS_SET := 1, UISF_HIDEFOCUS := 0x1, WM_CHANGEUISTATE := 0x0127
+        static WM_NOTIFY := 0x4E, WM_THEMECHANGED := 0x031A
+        static NM_CUSTOMDRAW := -12, CDDS_PREPAINT := 0x1, CDDS_ITEMPREPAINT := 0x10001
+        static CDRF_NOTIFYITEMDRAW := 0x20, CDRF_DODEFAULT := 0
+        
+        header := SendMessage(LVM_GETHEADER, 0, 0, lv)
+        if header
+            lv.DefineProp("Header", {Value: header})
+
+        OnMessage(WM_THEMECHANGED, (*) => 0)
+        OnMessage(WM_NOTIFY, (wParam, lParam, msg, hwnd)  {
+            try {
+                if !lParam
+                    return CDRF_DODEFAULT
+                code := NumGet(lParam, 8, "Int")
+                if code != NM_CUSTOMDRAW
+                    return CDRF_DODEFAULT
+                hwndFrom := NumGet(lParam, 0, "Ptr")
+                if hwndFrom != header
+                    return CDRF_DODEFAULT
+                drawStage := NumGet(lParam, 16, "UInt")
+                if (drawStage = CDDS_PREPAINT)
+                    return CDRF_NOTIFYITEMDRAW
+                if (drawStage = CDDS_ITEMPREPAINT)
+                    DllCall("SetTextColor", "Ptr", NumGet(lParam, 20, "Ptr"), "UInt", 0xFFFFFF)
+                return CDRF_DODEFAULT
+            } catch {
+                return CDRF_DODEFAULT
+            }
+        })
+
+        SendMessage(WM_CHANGEUISTATE, (UIS_SET << 8) | UISF_HIDEFOCUS, 0, lv)
+        DllCall("uxtheme\SetWindowTheme", "Ptr", header, "Str", "DarkMode_ItemsView", "Ptr", 0)
+        DllCall("uxtheme\SetWindowTheme", "Ptr", lv.Hwnd, "Str", "DarkMode_Explorer", "Ptr", 0)
+    }
+}
